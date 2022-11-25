@@ -1,14 +1,37 @@
-# ubuntu-dnsmasq-pxe-autoinstall
-
-# dnsmasq
+# Install dnsmasq packages
 ```
 apt install -y dnsmasq
 systemctl stop systemd-resolved.service
 systemctl disable systemd-resolved.service
 systemctl enable --now dnsmasq.service
+systemctl restart dnsmasq
 ```
 
-# tftp
+# Configuring the dnsmasq service
+```
+tee > /etc/dnsmasq.conf << 'EOF'
+server=1.1.1.1
+
+bind-interfaces
+
+dhcp-range=192.168.0.1,192.168.0.250,24h
+dhcp-option=option:router,192.168.0.254
+dhcp-option=option:ntp-server,192.168.0.254
+dhcp-option=option:dns-server,192.168.0.254
+dhcp-option=option:netmask,255.255.255.0
+
+enable-tftp
+tftp-root=/home/dnsmasq/tftp
+
+dhcp-boot=/bios/pxelinux.0,pxeserver,192.168.0.253
+dhcp-match=set:efi-x86_64,option:client-arch,7
+dhcp-boot=tag:efi-x86_64,grub/bootx64.efi
+
+log-facility=/home/dnsmasq/dnsmasq.log
+EOF
+```
+
+# Create the TFTP Folder Structure
 ```
 mkdir -p /home/dnsmasq/tftp/{boot/live-server,bios,grub}
 
@@ -32,7 +55,7 @@ tftp
 └── grubx64.efi
 ```
 
-# UEFI
+# Download UEFI Packages
 ```
 apt-get download shim.signed
 apt-get download grub-efi-amd64-signed
@@ -44,7 +67,7 @@ cp grub/usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed /home/dnsmasq/tftp/
 cp shim/usr/lib/shim/shimx64.efi.signed                      /home/dnsmasq/tftp/grub/bootx64.efi
 ```
 
-# BIOS
+# Download pxelinux Packages
 ```
 wget https://mirrors.edge.kernel.org/pub/linux/utils/boot/syslinux/syslinux-6.03.zip
 unzip syslinux-6.03.zip -d syslinux
@@ -63,7 +86,7 @@ ln -s /home/dnsmasq/tftp/boot /home/dnsmasq/tftp/bios/boot
 ```
 mkdir /home/dnsmasq/tftp/bios/pxelinux.cfg
 
-tee > /opt/tftp/bios/pxelinux.cfg/default << 'EOF'
+tee > /home/dnsmasq/bios/pxelinux.cfg/default << 'EOF'
 DEFAULT menu.c32
 NU TITLE ULTIMATE PXE SERVER - By Griffon - Ver 2.0
 PROMPT 0 
